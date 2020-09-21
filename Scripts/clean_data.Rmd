@@ -1,0 +1,96 @@
+---
+title: "Clean Data"
+author: "Jessica Scarborough"
+date: "9/15/2020"
+output: html_document
+---
+
+
+# Document Set Up
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r import_library, include = FALSE}
+
+library(here)
+library(tidyverse)
+
+```
+
+
+# Read and Clean Data
+
+We have two datasets, one with each sample's metadata (`metadata_rsi`), including calculated RSI, and another with mutational status for each sample (`mutation_data`). 
+
+```{r read_data}
+
+meta_data <- read.csv(here("Data", "metadata.csv"), header = FALSE)
+mutation_data <- read.csv(here("Data", "mutation_data.csv"))
+
+```
+
+
+Now, we need to filter the datasets to find only samples included in both. We'll also add more descriptive column names for the `meta_data_clean` dataset. 
+
+```{r filter_samples}
+
+sample_intersect <- intersect(mutation_data$Sample, meta_data$V1)
+mutation_data_intersect <- mutation_data %>%
+  filter(Sample %in% sample_intersect)
+meta_data_clean <- meta_data %>%
+  filter(V1 %in% sample_intersect)
+colnames(meta_data_clean) <- c("Sample_ID", "Family_ID", "ST_ID", "Met_Status", "Primary_Loc", "Secondary_Loc", "RSI")
+
+```
+
+
+# Convert Mutation Data into Binary and Categorical Matrices
+
+The `mutation_data` dataset contains a lot of detailed information regarding mutation type (protein missense or truncating mutation). We don't need it for plotting mutation or wt, however, so we're going to extract a binary matrix with mutational status for each sample and gene. 
+
+First, we'll remove all columns containing position data. Then, we'll convert `wt` to 0 and `mut`/`trunc` to 1 for the binary matrix, `mutation_data_BM`, and  `wt` to 0, `mut` to 1, and `trunc` to 2 for the categorical matrix,  `mutation_data_cat`.
+
+```{r mut_BM}
+# get original column names
+gene_columns_all <- colnames(mutation_data_intersect)
+
+# Search vector of column names to include only those that don't include "position" in the name
+gene_columns_include <- lapply(list(gene_columns_all), grep, pattern="positions", invert = TRUE)
+
+mutation_data_clean <- mutation_data_intersect %>%
+  select(gene_columns_include[[1]])
+
+mutation_data_BM <- mutation_data_clean %>%
+  mutate_at(2:ncol(mutation_data_clean), # mutate all variables except sample name
+            list(~ recode(., wt = "0", mut = "1", trunc = "1")))
+
+mutation_data_cat <- mutation_data_clean %>%
+  mutate_at(2:ncol(mutation_data_clean), # mutate all variables except sample name
+            list(~ recode(., wt = "0", mut = "1", trunc = "2")))
+
+```
+
+Finally, we'll merge the two datasets and save this as a `.csv` file. 
+
+# Merge Meta and Mutational Data
+
+```{r merge_datasets}
+
+mutation_BM_meta_tbl <- meta_data_clean %>%
+  inner_join(mutation_data_BM, by = c("Sample_ID" = "Sample"))
+
+mutation_cat_meta_tbl <- meta_data_clean %>%
+  inner_join(mutation_data_cat, by = c("Sample_ID" = "Sample"))
+
+write.csv(mutation_BM_meta_tbl,
+          file = here("Data", "mutation_BM_meta_clean.csv"), 
+          quote = FALSE)
+
+write.csv(mutation_cat_meta_tbl,
+          file = here("Data", "mutation_cat_meta_clean.csv"), 
+          quote = FALSE)
+
+```
+
+
