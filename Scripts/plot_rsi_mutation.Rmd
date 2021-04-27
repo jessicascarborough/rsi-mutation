@@ -67,6 +67,19 @@ row.names(mutation_cat_meta_tbl) <- mutation_cat_meta_filter$Sample_ID
 
 Now, let's see how mutations in these genes relate to the RSI score of each sample. We'll start by first ranking all samples by RSI in a waterfall plot, then create a heatmap based on each sample's mutation status. 
 
+## Distribution of RSI
+
+```{r rsi_histogram}
+
+
+
+
+
+```
+
+
+
+
 ## Waterfall
 
 ```{r plot_waterfall}
